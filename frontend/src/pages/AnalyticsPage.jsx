@@ -5,6 +5,8 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { BarChart3, TrendingUp, Award, Activity } from 'lucide-react';
+import { formatCurrency, getCurrencySymbol } from '../utils';
+
 
 const PIE_COLORS = [
   '#2563EB','#10B981','#F59E0B','#EF4444','#8B5CF6',
@@ -16,7 +18,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div className="card" style={{ padding: '10px 14px' }}>
       <div className="text-xs text-muted mb-1">{label}</div>
-      <div className="font-bold">₹{payload[0]?.value?.toLocaleString('en-IN')}</div>
+      <div className="font-bold">{formatCurrency(payload[0]?.value)}</div>
     </div>
   );
 };
@@ -50,9 +52,9 @@ export default function AnalyticsPage() {
       {/* KPI Cards */}
       <div className="grid-4 mb-6">
         {[
-          { label: 'Total Spent', value: `₹${data?.total_spent?.toLocaleString('en-IN')}`, icon: TrendingUp, color: '#2563EB' },
+          { label: 'Total Spent', value: formatCurrency(data?.total_spent), icon: TrendingUp, color: '#2563EB' },
           { label: 'Transactions', value: data?.total_transactions, icon: Activity, color: '#10B981' },
-          { label: 'Avg Transaction', value: `₹${data?.avg_transaction?.toFixed(2)}`, icon: BarChart3, color: '#F59E0B' },
+          { label: 'Avg Transaction', value: formatCurrency(data?.avg_transaction), icon: BarChart3, color: '#F59E0B' },
           { label: 'Top Merchant', value: data?.top_merchant, icon: Award, color: '#8B5CF6' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="stat-card" style={{ '--accent-gradient': `linear-gradient(90deg,${color},${color}99)` }}>
@@ -81,7 +83,7 @@ export default function AnalyticsPage() {
           <BarChart data={catData} margin={{ left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
             <XAxis dataKey="category" tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end" height={55} />
-            <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+            <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrency(v, 'USD', true)} />
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="amount" radius={[6,6,0,0]}>
               {catData.map((_, i) => (
@@ -106,7 +108,7 @@ export default function AnalyticsPage() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
               <XAxis dataKey="month" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+              <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrency(v, 'USD', true)} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="amount" stroke="#8B5CF6" strokeWidth={2.5} fill="url(#aGrad)" dot={{ fill: '#8B5CF6', r: 4 }} />
             </AreaChart>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getAnomalies } from '../api';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
+import { formatCurrency, getCurrencySymbol } from '../utils';
+
 
 export default function AnomaliesPage() {
   const [anomalies, setAnomalies] = useState([]);
@@ -74,7 +76,7 @@ export default function AnomaliesPage() {
                   </div>
                   <div className="text-right" style={{ flexShrink: 0 }}>
                     <div className="font-bold" style={{ fontSize: 18, color: 'var(--error)' }}>
-                      ₹{a.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatCurrency(a.amount, a.currency)}
                     </div>
                     <span className="badge badge-error">⚠️ {severity} Severity</span>
                   </div>
@@ -99,7 +101,7 @@ export default function AnomaliesPage() {
                   <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>
                     <div className="text-muted mb-1">Category Avg</div>
                     <div className="font-bold">
-                      ₹{a.anomaly_info?.avg_transaction_amount?.toLocaleString('en-IN')}
+                      {formatCurrency(a.anomaly_info?.avg_transaction_amount, a.currency)}
                     </div>
                   </div>
                   <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>

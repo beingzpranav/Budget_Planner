@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getBudget, updateBudget } from '../api';
 import { useToast } from '../ToastContext';
 import { Edit2, Check, X, Wallet, TrendingDown } from 'lucide-react';
+import { formatCurrency } from '../utils';
 import {
   RadialBarChart, RadialBar, ResponsiveContainer, Tooltip
 } from 'recharts';
@@ -75,7 +76,7 @@ function BudgetCard({ cat, onUpdate }) {
         <div style={{ flex: 1 }}>
           <div className="flex justify-between mb-1">
             <span className="text-xs text-muted">Spent</span>
-            <span className="text-xs font-semibold">₹{cat.spent?.toLocaleString('en-IN')}</span>
+            <span className="text-xs font-semibold">{formatCurrency(cat.spent)}</span>
           </div>
           <div className="flex justify-between mb-3">
             <span className="text-xs text-muted">Budget</span>
@@ -88,7 +89,7 @@ function BudgetCard({ cat, onUpdate }) {
                 onChange={e => setTempLimit(e.target.value)}
               />
             ) : (
-              <span className="text-xs font-semibold">₹{cat.limit?.toLocaleString('en-IN')}</span>
+              <span className="text-xs font-semibold">{formatCurrency(cat.limit)}</span>
             )}
           </div>
           <div className="progress-bar" style={{ height: 6 }}>
@@ -99,7 +100,7 @@ function BudgetCard({ cat, onUpdate }) {
           </div>
           <div className="flex justify-between mt-1">
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {cat.remaining > 0 ? `₹${cat.remaining?.toLocaleString('en-IN')} left` : 'Over by ₹' + Math.abs(cat.limit - cat.spent)?.toLocaleString('en-IN')}
+              {cat.remaining > 0 ? `${formatCurrency(cat.remaining)} left` : `${formatCurrency(Math.abs(cat.limit - cat.spent))} Over`}
             </span>
           </div>
         </div>
@@ -178,7 +179,7 @@ export default function BudgetPage() {
           </div>
           <div>
             <div className="stat-label">Total Budget</div>
-            <div className="stat-value">₹{budget?.total_budget?.toLocaleString('en-IN')}</div>
+            <div className="stat-value">{formatCurrency(budget?.total_budget)}</div>
           </div>
         </div>
         <div className="stat-card" style={{ '--accent-gradient': 'linear-gradient(90deg,#10B981,#34D399)' }}>
@@ -189,7 +190,7 @@ export default function BudgetPage() {
           </div>
           <div>
             <div className="stat-label">Total Spent</div>
-            <div className="stat-value">₹{budget?.total_spent?.toLocaleString('en-IN')}</div>
+            <div className="stat-value">{formatCurrency(budget?.total_spent)}</div>
           </div>
         </div>
         <div className="stat-card" style={{ '--accent-gradient': `linear-gradient(90deg,${overCount > 0 ? '#EF4444' : '#10B981'},${overCount > 0 ? '#F87171' : '#34D399'})` }}>
@@ -229,8 +230,8 @@ export default function BudgetPage() {
           />
         </div>
         <div className="flex justify-between mt-2" style={{ fontSize: 12 }}>
-          <span className="text-muted">₹{budget?.total_spent?.toLocaleString('en-IN')} spent</span>
-          <span className="text-muted">₹{budget?.total_remaining?.toLocaleString('en-IN')} remaining</span>
+          <span className="text-muted">{formatCurrency(budget?.total_spent)} spent</span>
+          <span className="text-muted">{formatCurrency(budget?.total_remaining)} remaining</span>
         </div>
       </div>
 

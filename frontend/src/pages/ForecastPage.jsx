@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getForecast } from '../api';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { formatCurrency } from '../utils';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
@@ -47,7 +48,7 @@ export default function ForecastPage() {
               tick={{ fill: '#64748B', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`}
+              tickFormatter={v => formatCurrency(v, 'USD', true)}
             />
             <YAxis
               type="category"
@@ -57,7 +58,7 @@ export default function ForecastPage() {
               tickLine={false}
               width={130}
             />
-            <Tooltip formatter={v => [`₹${v.toLocaleString('en-IN')}`, 'Forecast']} />
+            <Tooltip formatter={v => [formatCurrency(v), 'Forecast']} />
             <Bar dataKey="forecast_amount" radius={[0, 6, 6, 0]}>
               {forecasts.map((f, i) => (
                 <Cell
@@ -80,7 +81,7 @@ export default function ForecastPage() {
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <div className="font-bold" style={{ fontSize: 16 }}>
-                  ₹{f.forecast_amount?.toLocaleString('en-IN')}
+                  {formatCurrency(f.forecast_amount)}
                 </div>
                 <div className="text-xs text-muted">predicted next month</div>
               </div>

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Filter, Search, Receipt, IndianRupee, List } from 'lucide-react';
+import { Trash2, Filter, Search, Receipt, Wallet, List } from 'lucide-react';
 import { getExpenses, deleteExpense } from '../api';
 import { useToast } from '../ToastContext';
 import { format, parseISO } from 'date-fns';
+import { formatCurrency, getCurrencySymbol } from '../utils';
+
 
 const CATEGORIES = [
   'All', 'Food & Dining', 'Groceries', 'Transportation', 'Healthcare',
@@ -68,10 +70,10 @@ export default function ExpensesPage() {
             <p className="page-subtitle">All your scanned and tracked expenses</p>
           </div>
           <div className="card" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <IndianRupee size={16} color="var(--primary-light)" />
+            <Wallet size={16} color="var(--primary-light)" />
             <div>
               <div className="text-xs text-muted">Total ({filtered.length} items)</div>
-              <div className="font-bold" style={{ fontSize: 18 }}>₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+              <div className="font-bold" style={{ fontSize: 18 }}>{formatCurrency(total, filtered[0]?.currency)}</div>
             </div>
           </div>
         </div>
@@ -173,8 +175,8 @@ export default function ExpensesPage() {
                       <div style={{ fontSize: 13 }}>{e.date}</div>
                     </td>
                     <td>
-                      <div className="font-bold" style={{ fontSize: 15 }}>₹{e.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                      <div className="text-xs text-muted">+₹{e.tax?.toFixed(2)} tax</div>
+                      <div className="font-bold" style={{ fontSize: 15 }}>{formatCurrency(e.amount, e.currency)}</div>
+                      <div className="text-xs text-muted">+{formatCurrency(e.tax, e.currency)} tax</div>
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
@@ -241,9 +243,7 @@ export default function ExpensesPage() {
                       {item.name} {item.qty > 1 ? `× ${item.qty}` : ''}
                     </span>
                     <span className="font-semibold">
-                      ₹{Number(item.price || 0).toLocaleString('en-IN', {
-                        minimumFractionDigits: 2,
-                      })}
+                      {formatCurrency(item.price, selectedExpense?.currency)}
                     </span>
                   </div>
                 ))}

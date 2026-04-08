@@ -5,6 +5,8 @@ import {
 } from 'recharts';
 import { Receipt, Wallet, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { getAnalytics, getBudget, getAnomalies } from '../api';
+import { formatCurrency, getCurrencySymbol } from '../utils';
+
 
 const PIE_COLORS = [
   '#2563EB','#10B981','#F59E0B','#EF4444','#8B5CF6',
@@ -40,7 +42,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="text-xs text-muted mb-2">{label}</div>
       {payload.map((p, i) => (
         <div key={i} className="flex items-center gap-2 text-sm">
-          <span style={{ color: p.color, fontWeight: 700 }}>₹ {p.value?.toLocaleString('en-IN')}</span>
+          <span style={{ color: p.color, fontWeight: 700 }}>{formatCurrency(p.value)}</span>
         </div>
       ))}
     </div>
@@ -94,7 +96,7 @@ export default function Dashboard({ onNavigate }) {
       <div className="grid-4 mb-6">
         <StatCard
           label="Total Spent"
-          value={`₹${analytics?.total_spent?.toLocaleString('en-IN') || 0}`}
+          value={formatCurrency(analytics?.total_spent)}
           icon={Receipt}
           color="#2563EB"
           delta="This Month"
@@ -102,7 +104,7 @@ export default function Dashboard({ onNavigate }) {
         />
         <StatCard
           label="Total Budget"
-          value={`₹${budget?.total_budget?.toLocaleString('en-IN') || 0}`}
+          value={formatCurrency(budget?.total_budget)}
           icon={Wallet}
           color="#10B981"
           delta={`${budget?.overall_percentage || 0}% used`}
@@ -143,7 +145,7 @@ export default function Dashboard({ onNavigate }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
               <XAxis dataKey="month" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+              <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrency(v, 'USD', true)} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="amount" stroke="#3B82F6" strokeWidth={2.5} fill="url(#grad1)" dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }} />
             </AreaChart>
@@ -163,7 +165,7 @@ export default function Dashboard({ onNavigate }) {
                     <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Spent']} />
+                <Tooltip formatter={(v) => [formatCurrency(v), 'Spent']} />
               </PieChart>
             </ResponsiveContainer>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -171,7 +173,7 @@ export default function Dashboard({ onNavigate }) {
                 <div key={i} className="flex items-center gap-2" style={{ fontSize: 12 }}>
                   <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[i], flexShrink: 0 }} />
                   <span className="text-muted truncate" style={{ flex: 1 }}>{d.category}</span>
-                  <span className="font-semibold">₹{d.amount?.toLocaleString('en-IN')}</span>
+                  <span className="font-semibold">{formatCurrency(d.amount)}</span>
                 </div>
               ))}
             </div>
@@ -199,7 +201,7 @@ export default function Dashboard({ onNavigate }) {
                 <div className="flex items-center justify-between mb-2">
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{cat.category}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    ₹{cat.spent?.toLocaleString('en-IN')} / ₹{cat.limit?.toLocaleString('en-IN')}
+                    {formatCurrency(cat.spent)} / {formatCurrency(cat.limit)}
                   </span>
                 </div>
                 <div className="progress-bar">
@@ -209,7 +211,7 @@ export default function Dashboard({ onNavigate }) {
                   <span className={`text-${cat.status === 'over' ? 'error' : cat.status === 'warning' ? 'warning' : 'success'}`}>
                     {cat.percentage}%
                   </span>
-                  <span className="text-muted">₹{cat.remaining?.toLocaleString('en-IN')} left</span>
+                  <span className="text-muted">{formatCurrency(cat.remaining)} left</span>
                 </div>
               </div>
             ))}

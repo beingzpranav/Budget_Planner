@@ -4,8 +4,9 @@ import {
   Upload, Camera, CheckCircle, AlertCircle,
   Cpu, Tag, DollarSign, Building2, Calendar
 } from 'lucide-react';
-import { scanReceipt } from '../api';
+import { scanReceipt, getBudgetConfig, updateBudget } from '../api';
 import { useToast } from '../ToastContext';
+import { formatCurrency, getCurrencySymbol } from '../utils';
 
 const PIPELINE_STAGES = [
   { label: 'Prepare\nImage', icon: '🖼️' },
@@ -49,6 +50,9 @@ export default function ScanPage() {
   const [pipelineStage, setPipelineStage] = useState(-1);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [budgetPromptCat, setBudgetPromptCat] = useState(null);
+  const [budgetInput, setBudgetInput] = useState('');
+  const [budgetSaving, setBudgetSaving] = useState(false);
 
   const onDrop = useCallback((files) => {
     const file = files[0];
@@ -87,9 +91,30 @@ export default function ScanPage() {
       setPipelineStage(PIPELINE_STAGES.length);
       setResult(res.data);
       toast('Receipt scanned successfully!', 'success');
+
+      // Budget check logic
+      const detectedCategory = res.data.ocr_result?.category;
+      if (detectedCategory) {
+        try {
+          const configRes = await getBudgetConfig();
+          const categoryConfig = configRes.data.categories.find(c => c.category === detectedCategory);
+          // If the category is not enabled (meaning no budget is set)
+          if (categoryConfig && !categoryConfig.enabled) {
+            setBudgetPromptCat(detectedCategory);
+          }
+        } catch (e) {
+          // ignore error to not block UI
+        }
+      }
+
     } catch (err) {
-      setError('Failed to connect to ML backend. Make sure Flask server is running on port 5000.');
-      toast('Scan failed — backend unreachable', 'error');
+      const apiError = err?.response?.data?.error;
+      const statusCode = err?.response?.status;
+      const message = apiError
+        ? `Scan failed (${statusCode || 'error'}): ${apiError}`
+        : 'Failed to connect to backend API. Check frontend VITE_API_BASE_URL and backend server status.';
+      setError(message);
+      toast(apiError ? 'Scan failed' : 'Scan failed — backend unreachable', 'error');
       setPipelineStage(-1);
     } finally {
       setScanning(false);
@@ -98,6 +123,7 @@ export default function ScanPage() {
 
   const confidence = result?.ocr_result?.confidence;
   const isAnomaly = result?.anomaly_detection?.is_anomaly;
+  const sym = '₹';
 
   return (
     <div>
@@ -203,10 +229,10 @@ export default function ScanPage() {
                 <ResultField label="Category" value={result.ocr_result?.category} icon={Tag} />
                 <ResultField
                   label="Total Amount"
-                  value={`₹ ${result.ocr_result?.total?.toFixed(2)}`}
+                  value={`${sym}${result.ocr_result?.total?.toFixed(2)}`}
                   icon={DollarSign}
                 />
-                <ResultField label="Tax" value={`₹ ${result.ocr_result?.tax?.toFixed(2)}`} icon={DollarSign} />
+                <ResultField label="Tax" value={`${sym}${result.ocr_result?.tax?.toFixed(2)}`} icon={DollarSign} />
 
                 {/* Line items */}
                 {result.ocr_result?.items?.length > 0 && (
@@ -217,7 +243,7 @@ export default function ScanPage() {
                     {result.ocr_result.items.map((item, i) => (
                       <div key={i} className="flex justify-between" style={{ fontSize: 13, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                         <span className="text-secondary">{item.name} {item.qty > 1 && `× ${item.qty}`}</span>
-                        <span className="font-semibold">₹{item.price?.toFixed(2)}</span>
+                        <span className="font-semibold">{sym}{item.price?.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -268,7 +294,13 @@ export default function ScanPage() {
                 </div>
               </div>
               <div className="mt-4 text-xs text-muted font-mono" style={{ background: 'var(--bg-elevated)', padding: '10px 12px', borderRadius: 8 }}>
-                cd backend && pip install -r requirements.txt && python app.py
+                cd backend
+                <br />
+                pip install -r requirements.txt
+                <br />
+                alembic upgrade head
+                <br />
+                python app.py
               </div>
             </div>
           )}
@@ -284,6 +316,58 @@ export default function ScanPage() {
           )}
         </div>
       </div>
+
+      {/* Budget Prompt Pop-up */}
+      {budgetPromptCat && (
+        <div className="modal-overlay" onClick={() => !budgetSaving && setBudgetPromptCat(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">New Category Detected</div>
+                <div className="text-sm text-muted mt-1">Set a monthly budget for {budgetPromptCat}</div>
+              </div>
+              <button className="modal-close" onClick={() => setBudgetPromptCat(null)}>✕</button>
+            </div>
+            <div style={{ padding: 20 }}>
+              <p className="text-sm mb-4">We noticed you don't have a budget set for <strong>{budgetPromptCat}</strong> yet. Would you like to set one now to start tracking?</p>
+              <div className="form-group mb-4">
+                <label className="form-label">Monthly Budget Limit</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder={`e.g. 500`}
+                  value={budgetInput}
+                  onChange={e => setBudgetInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-6">
+                <button className="btn btn-ghost" onClick={() => setBudgetPromptCat(null)}>Skip</button>
+                <button 
+                  className="btn btn-primary" 
+                  disabled={!budgetInput || isNaN(budgetInput) || budgetSaving}
+                  onClick={async () => {
+                    setBudgetSaving(true);
+                    try {
+                        await updateBudget(budgetPromptCat, parseFloat(budgetInput));
+                        toast('Budget updated successfully!', 'success');
+                        setBudgetPromptCat(null);
+                        setBudgetInput('');
+                    } catch {
+                        toast('Failed to set budget', 'error');
+                    } finally {
+                        setBudgetSaving(false);
+                    }
+                  }}
+                >
+                  {budgetSaving ? <div className="spinner" style={{width: 14, height: 14}}/> : 'Save Budget'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

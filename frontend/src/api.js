@@ -1,10 +1,12 @@
 import axios from 'axios';
 
 const TOKEN_KEY = 'receiptai_token';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api',
-  timeout: 10000,
+  baseURL: API_BASE_URL,
+  timeout: 30000,
 });
 
 API.interceptors.request.use((config) => {
@@ -42,7 +44,7 @@ export const logout = () =>
   API.post('/auth/logout');
 
 export const scanReceipt = (imageBase64) =>
-  API.post('/receipts/scan', { image: imageBase64 });
+  API.post('/receipts/scan', { image: imageBase64 }, { timeout: 120000 });
 
 export const getExpenses = (params) =>
   API.get('/expenses', { params });

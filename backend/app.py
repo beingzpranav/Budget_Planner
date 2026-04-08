@@ -6,10 +6,13 @@ Real OCR using EasyOCR + keyword-based NER + rule-based classification.
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import os
-import base64, io, re, uuid, random
+import base64, io, re, uuid, random, json
 from functools import wraps
 from datetime import datetime
 from PIL import Image
+from PIL import ImageFile
+from PIL import ImageEnhance
+from PIL import ImageFilter
 import numpy as np
 import easyocr
 import bcrypt
@@ -22,6 +25,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
+try:
+    from google import genai as _genai_sdk
+    _GENAI_AVAILABLE = True
+except ImportError:
+    _GENAI_AVAILABLE = False
 
 app = Flask(__name__)
 CORS(app)
@@ -30,6 +38,7 @@ CORS(app)
 print("Loading EasyOCR model...")
 reader = easyocr.Reader(['en'], gpu=False, verbose=False)
 print("EasyOCR ready.")
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Category keyword map  (used for classification after OCR)
@@ -128,6 +137,19 @@ RECEIPT_TEMPLATES = [
 Base = declarative_base()
 
 load_dotenv()
+
+# ── Gemini AI setup ────────────────────────────────────────────────────────────
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL   = "gemini-3-flash-preview"
+_gemini_client = None
+if _GENAI_AVAILABLE and GEMINI_API_KEY:
+    try:
+        _gemini_client = _genai_sdk.Client(api_key=GEMINI_API_KEY)
+        print(f"Gemini AI ready ({GEMINI_MODEL}).")
+    except Exception as _ge:
+        print(f"Gemini init failed: {_ge}")
+else:
+    print("Gemini not configured — using regex fallback parser.")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
@@ -359,6 +381,10 @@ def find_merchant(lines: list[str]) -> str:
             continue
         if re.match(r'^[\d\s\.\-\:\,\$\%\/\*\#]+$', clean):
             continue
+        if len(clean) > 18 and " " not in clean:
+            continue
+        if sum(ch.isalpha() for ch in clean) < 3:
+            continue
         candidates.append(clean)
     if not candidates:
         return "Unknown Merchant"
@@ -494,47 +520,202 @@ def find_items(lines: list[str], total: float, tax: float) -> list[dict]:
     return items
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Gemini AI parser — converts raw OCR text into structured receipt data
+# ─────────────────────────────────────────────────────────────────────────────
+_GEMINI_PROMPT = """
+You are a receipt parser. Given raw OCR text extracted from a receipt image, return ONLY valid JSON.
+
+Extract:
+- merchant: Store/restaurant name (first prominent text, NOT address)
+- date: Date in YYYY-MM-DD format (look for date patterns like MM/DD/YYYY)
+- currency: Currency code (USD, INR, EUR, GBP, etc.) detected from symbols or context
+- items: Array of individual line items, each with:
+    - name: Item name (clean, human-readable)
+    - price: Unit price as a number
+    - qty: Quantity as integer
+- subtotal: Subtotal before tax (number)
+- tax: Total tax amount (number)
+- total: Final total paid (number)
+- category: One of: Food & Dining, Groceries, Transportation, Healthcare, Entertainment, Utilities, Shopping, Education, Travel, Personal Care, Miscellaneous
+
+IMPORTANT:
+- Return ONLY valid JSON, no markdown, no explanation
+- All prices must be plain numbers (no currency symbols)
+- If a field is unknown, use null
+- Items should be individual products, NOT subtotal/tax/total rows
+- For qty/price detection: "2 x 2.97" means qty=2, price=2.97
+
+OCR TEXT:
+{ocr_text}
+"""
+
+
+def parse_with_gemini(ocr_text: str) -> dict | None:
+    """Use Gemini to parse OCR text into structured receipt data (with fallback)."""
+    if not _gemini_client:
+        return None
+    models_to_try = [GEMINI_MODEL, "gemini-2.0-flash", "gemini-2.5-flash"]
+    prompt = _GEMINI_PROMPT.format(ocr_text=ocr_text)
+
+    for m in models_to_try:
+        try:
+            print(f"Trying Gemini model: {m}...")
+            response = _gemini_client.models.generate_content(
+                model=m,
+                contents=prompt,
+            )
+            raw = response.text.strip()
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = re.sub(r'^```[a-z]*\n?', '', raw)
+                raw = re.sub(r'```$', '', raw).strip()
+            parsed = json.loads(raw)
+            return parsed
+        except Exception as e:
+            print(f"Failed parsing with {m}: {str(e)[:150]}")
+            continue
+            
+    print("All Gemini models failed")
+    return None
+
+
 def run_real_ocr(image_b64: str) -> dict:
     """
     Full OCR pipeline:
     1. Decode base64 → PIL image
-    2. EasyOCR → list of text lines
-    3. Parse merchant, date, total, tax, items, category
+    2. Preprocess & run EasyOCR → raw text
+    3. Feed text to Gemini AI for intelligent item-wise parsing
+    4. Fall back to regex parser if Gemini unavailable
     """
-    # Decode image
+    # ── Image preprocessing ───────────────────────────────────────────────────
     img_bytes = base64.b64decode(image_b64)
     pil_image = Image.open(io.BytesIO(img_bytes)).convert('RGB')
-    img_array = np.array(pil_image)
+    grayscale = pil_image.convert("L")
+    enhanced = ImageEnhance.Contrast(grayscale).enhance(1.7)
+    sharpened = enhanced.filter(ImageFilter.SHARPEN)
+    upscaled = sharpened.resize(
+        (sharpened.width * 2, sharpened.height * 2),
+        Image.Resampling.LANCZOS
+    )
+    img_array = np.array(upscaled)
 
-    # Run EasyOCR
-    ocr_results = reader.readtext(img_array, detail=0, paragraph=False)
-    # ocr_results = list of strings, one per detected text block
+    # ── EasyOCR ───────────────────────────────────────────────────────────────
+    ocr_results = reader.readtext(img_array, detail=1, paragraph=False)
+    parsed_rows = []
+    for row in ocr_results:
+        if len(row) != 3:
+            continue
+        bbox, text, conf = row
+        text = str(text).strip()
+        if not text or float(conf) < 0.25:
+            continue
+        y = min(point[1] for point in bbox)
+        x = min(point[0] for point in bbox)
+        parsed_rows.append({"text": text, "conf": float(conf), "y": y, "x": x})
 
-    lines     = [str(r).strip() for r in ocr_results if str(r).strip()]
+    parsed_rows.sort(key=lambda r: (r["y"], r["x"]))
+    lines = [r["text"] for r in parsed_rows]
     full_text = '\n'.join(lines)
 
+    avg_confidence = (
+        round(sum(r["conf"] for r in parsed_rows) / len(parsed_rows), 3)
+        if parsed_rows else 0
+    )
+
+    # ── Try Gemini AI parser first ────────────────────────────────────────────
+    ai_result = parse_with_gemini(full_text)
+
+    if ai_result:
+        # Validate and clean AI result
+        merchant = str(ai_result.get("merchant") or "Unknown Merchant").strip()
+        date_raw = ai_result.get("date")
+        date = str(date_raw) if date_raw else find_date(lines)
+        currency = str(ai_result.get("currency") or "USD").strip().upper()
+
+        # Normalise items
+        raw_items = ai_result.get("items") or []
+        items = []
+        for it in raw_items:
+            if not isinstance(it, dict):
+                continue
+            name = str(it.get("name") or "").strip()
+            if not name:
+                continue
+            try:
+                price = round(float(it.get("price") or 0), 2)
+            except (TypeError, ValueError):
+                price = 0.0
+            try:
+                qty = max(int(it.get("qty") or 1), 1)
+            except (TypeError, ValueError):
+                qty = 1
+            items.append({"name": name, "price": price, "qty": qty})
+
+        try:
+            tax = round(float(ai_result.get("tax") or 0), 2)
+        except (TypeError, ValueError):
+            tax = 0.0
+        try:
+            total = round(float(ai_result.get("total") or 0), 2)
+        except (TypeError, ValueError):
+            total = 0.0
+        try:
+            subtotal = round(float(ai_result.get("subtotal") or (total - tax)), 2)
+        except (TypeError, ValueError):
+            subtotal = round(total - tax, 2)
+
+        if total == 0.0:
+            total = round(sum(i["price"] * i["qty"] for i in items) + tax, 2)
+        if not items:
+            items = [{"name": "Receipt Items", "price": round(total - tax, 2), "qty": 1}]
+
+        category_raw = ai_result.get("category") or ""
+        if category_raw in EXPENSE_CATEGORIES:
+            category = category_raw
+        else:
+            category = classify_by_text(full_text + ' ' + merchant)
+
+        return {
+            "merchant":   merchant,
+            "date":       date,
+            "items":      items,
+            "subtotal":   subtotal,
+            "tax":        tax,
+            "total":      total,
+            "currency":   currency,
+            "category":   category,
+            "raw_lines":  len(lines),
+            "confidence": min(avg_confidence + 0.15, 0.99),  # AI boost
+            "ocr_engine": "easyocr+gemini",
+        }
+
+    # ── Regex fallback parser ─────────────────────────────────────────────────
+    print("Using regex fallback parser (Gemini unavailable).")
     merchant = find_merchant(lines)
-    date     = find_date(lines)
+    date = find_date(lines)
     total, tax = find_total(lines)
-    items    = find_items(lines, total, tax)
+    items = find_items(lines, total, tax)
     category = classify_by_text(full_text + ' ' + merchant)
 
-    # If nothing found use zero
     if total == 0.0:
         total = sum(i['price'] for i in items)
-
     subtotal = round(total - tax, 2)
+    
+    currency = "USD" if "$" in full_text else "INR" if "₹" in full_text else "USD"
 
     return {
         "merchant":  merchant,
         "date":      date,
-        "items":     items if items else [{"name": "See receipt", "price": total, "qty": 1}],
+        "items":     items if items else [{"name": "Receipt Items (combined)", "price": total, "qty": 1}],
         "subtotal":  subtotal,
         "tax":       tax,
         "total":     total,
-        "currency":  "INR",
+        "currency":  currency,
         "category":  category,
         "raw_lines": len(lines),
+        "confidence": avg_confidence,
+        "ocr_engine": "easyocr",
     }
 
 
@@ -808,11 +989,12 @@ def scan_receipt():
             qty=int(item.get("qty", 1) or 1),
         ))
     db.commit()
+    expense_id = expense.id
     db.close()
 
     return jsonify({
         "success":           True,
-        "expense_id":        expense.id,
+        "expense_id":        expense_id,
         "ocr_result":        ocr,
         "classification":    clf,
         "anomaly_detection": anomaly,
@@ -908,11 +1090,11 @@ def update_budget(category):
     )
     if row:
         row.limit = float(data.get("limit", row.limit))
-        db.commit()
-        db.close()
-        return jsonify({"success": True})
+    else:
+        db.add(Budget(user_id=g.user_id, category=category, limit=float(data.get("limit", 0))))
+    db.commit()
     db.close()
-    return jsonify({"error": "Category not found"}), 404
+    return jsonify({"success": True})
 
 
 @app.route("/api/settings/budget-config", methods=["GET"])
