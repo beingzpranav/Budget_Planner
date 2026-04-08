@@ -10,3 +10,4 @@ google-genai>=1.0.0
 easyocr
 Pillow
 numpy
+gunicorn
