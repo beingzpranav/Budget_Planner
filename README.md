@@ -1,157 +1,52 @@
-# ReceiptAI - Receipt Scanner & Budget Planner
+# ReceiptAI - Modern Receipt Scanner & Budget Planner
 
-Full-stack web app for scanning receipts, extracting itemized expenses, and
-tracking category-based budgets with user authentication.
+ReceiptAI is a premium, full-stack application that seamlessly bridges physical and digital financial tracking. Leveraging **Machine Learning-driven OCR (EasyOCR)**, it allows users to scan their receipts, automatically extract merchant data, line items, and taxes, and predict spend categories. The platform then uses sophisticated charting and predictive modeling to offer **real-time 30-day budget forecasts** and anomaly detection. 
 
-## Features
+Following a complete design overhaul, ReceiptAI features a state-of-the-art **Shadcn-inspired UI** wrapped in a modern, animated dark theme.
 
-- Email/password authentication (bcrypt)
-- Google Sign-In (ID token verification on backend)
-- Per-user sessions with token auth
-- Receipt image upload and OCR extraction (EasyOCR)
-- Automatic parsing:
-  - merchant
-  - date
-  - total and tax
-  - line items (name, qty, price)
-  - category prediction
-- Expense management:
-  - list/search/filter expenses
-  - delete expense
-  - view parsed items per expense
-- Budget configuration:
-  - user selects categories
-  - healthcare optional
-  - custom monthly limits
-- Budget enforcement flow:
-  - user must complete budget setup first
-- Analytics dashboard:
-  - category totals
-  - monthly trend
-  - top merchant
-- Forecast and anomaly screens (rule/simulation-based)
-- Modern UI with dark theme and responsive layout
+---
 
-## Tech Stack
+## 🔥 Key Features
 
-### Frontend
+### Premium User Experience
+* **Shadcn UI Aesthetics:** Highly polished interface utilizing soft glassmorphism, responsive CSS grid-based layouts, and customized translucent components.
+* **Animated Top Nav Pill:** A modern floating top-navigation system engineered with `framer-motion` for buttery smooth tab transitions.
+* **Smart Spinners:** Custom animated loaders that dynamically react to application states and processing delays.
 
-- React + Vite
-- Axios
-- Recharts
-- Lucide icons
-- Google OAuth React SDK
+### Machine Learning Core
+* **Receipt Scanning:** Instantaneously parse uploaded receipt images using `EasyOCR` built on PyTorch.
+* **Intelligent Extraction:** Automatically categorizes purchases, separates taxes from net totals, and isolates itemized quantities and prices.
+* **Anomaly Detection:** Rule-based algorithm designed to alert users immediately if a scanned receipt drastically exceeds average historical transaction thresholds.
+* **Rolling 30-Day Forecast:** Live predictive analytics calculate real-time trends using dynamic historical data rather than manual date windows. 
 
-### Backend
+### Extensive Spend Management 
+* **Custom Budget Tracking:** Completely customizable budget limits per-category tracking (e.g. strict budgets for Entertainment/Dining, optional for Healthcare).
+* **Deep Analytics Dashboard:** Visualized financial footprints modeled natively using `recharts` (Area splines, Bar charts, interactive categorical Pie rings).
+* **Expense Moderation:** Search, filter, inspect, and delete extracted historical records with ease.
 
-- Flask + Flask-CORS
-- SQLAlchemy ORM
-- Alembic migrations
-- PostgreSQL (Neon compatible)
-- EasyOCR + Pillow + NumPy
+### Secure Ecosystem
+* **Multi-Auth Pipelines:** Integrated robust Email/Password routines alongside token-based **Google OAuth** SSO integration.
+* **Per-User Silos:** Secured Postgres database guaranteeing absolute financial isolation for user documents via JWT authorization mechanisms.
 
-## Backend Details
+---
 
-### Database Models
+## 🛠️ Technology Stack
 
-- `User`
-  - `id`, `email`, `password_hash`, `name`, `created_at`
-- `UserSession`
-  - `token`, `user_id`, `created_at`
-- `Expense`
-  - `id`, `user_id`, `merchant`, `amount`, `category`, `date`, `tax`,
-    `confidence`, `currency`, `source`, `created_at`
-- `ExpenseItem`
-  - `id`, `expense_id`, `name`, `price`, `qty`
-- `Budget`
-  - `id`, `user_id`, `category`, `limit`
+**Frontend Architecture:**
+* **React + Vite** (Ultra-fast HMR and frontend bundling)
+* **Tailwind CSS V3** (Custom extensive styling layer without Preflight conflicts)
+* **Framer Motion** (Spring physics and dynamic layout animations)
+* **Recharts** (Performance-first analytical charting)
+* **Lucide-React** (Lightweight scalable icon packages)
+* **Google OAuth SDK**
 
-### API (Core)
+**Backend Architecture:**
+* **Python + Flask**
+* **Flask-CORS** (Secure cross-origin definitions)
+* **SQLAlchemy ORM** (Model mapping and relational querying)
+* **Alembic** (Reliable remote database migrations)
+* **EasyOCR & PyTorch** (Optical character recognition engine and modeling operations)
+* **Pillow & NumPy** (Image sanitization and matrix processing prior to inference)
 
-- Auth
-  - `POST /api/auth/register`
-  - `POST /api/auth/login`
-  - `POST /api/auth/google`
-  - `GET /api/auth/me`
-  - `POST /api/auth/logout`
-- Receipts & Expenses
-  - `POST /api/receipts/scan`
-  - `GET /api/expenses`
-  - `DELETE /api/expenses/<id>`
-- Budgets
-  - `GET /api/settings/budget-config`
-  - `PUT /api/settings/budget-config`
-  - `GET /api/budget`
-  - `PUT /api/budget/<category>`
-- Insights
-  - `GET /api/analytics/summary`
-  - `GET /api/forecast`
-  - `GET /api/anomalies`
-- Health
-  - `GET /api/health`
-
-## Setup
-
-## 1) Backend
-
-```bash
-cd backend
-copy .env.example .env
-pip install -r requirements.txt
-alembic upgrade head
-python app.py
-```
-
-Backend runs at `http://localhost:5000`
-
-Required backend envs in `backend/.env`:
-
-- `DATABASE_URL` - Neon/Postgres connection string
-- `GOOGLE_CLIENT_ID` - Google OAuth Web client ID
-- `AUTO_CREATE_TABLES` - optional (`false` recommended with Alembic)
-
-## 2) Frontend
-
-```bash
-cd frontend
-copy .env.example .env
-npm install
-npm run dev
-```
-
-Frontend runs at `http://localhost:5173`
-
-Required frontend envs in `frontend/.env`:
-
-- `VITE_GOOGLE_CLIENT_ID` - same value as backend `GOOGLE_CLIENT_ID`
-- `VITE_API_BASE_URL` - backend API base URL (example:
-  `http://localhost:5000/api`)
-
-## Deployment Notes
-
-- Frontend: Vercel/Netlify
-- Backend: any Python host (Render/Koyeb/etc.)
-- Database: Neon Postgres
-- Always configure:
-  - backend `DATABASE_URL`
-  - backend `GOOGLE_CLIENT_ID`
-  - frontend `VITE_GOOGLE_CLIENT_ID`
-  - frontend `VITE_API_BASE_URL`
-- Run migrations on deploy:
-  - `alembic upgrade head`
-
-## Project Structure
-
-```txt
-Reciept Scanner/
-├── backend/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── alembic/
-├── frontend/
-│   ├── src/
-│   ├── package.json
-│   └── .env.example
-└── README.md
-```
+**Infrastructure:**
+* **PostgreSQL (Neon)** - Serverless and highly accessible backing.
