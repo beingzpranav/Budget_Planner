@@ -7,6 +7,7 @@ import {
 import { scanReceipt, getBudgetConfig, updateBudget } from '../api';
 import { useToast } from '../ToastContext';
 import { formatCurrency, getCurrencySymbol } from '../utils';
+import Loader from '../components/ui/Loader';
 
 const PIPELINE_STAGES = [
   { label: 'Prepare\nImage', icon: '🖼️' },
@@ -186,9 +187,8 @@ export default function ScanPage() {
         <div>
           {scanning && (
             <div className="card">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="spinner" />
-                <span className="font-semibold">Processing receipt...</span>
+              <div className="flex items-center justify-center mb-6">
+                <Loader />
               </div>
               <PipelineIndicator stage={pipelineStage} />
               <p className="text-secondary text-sm text-center">

@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { BarChart3, TrendingUp, Award, Activity } from 'lucide-react';
 import { formatCurrency, getCurrencySymbol } from '../utils';
+import Loader from '../components/ui/Loader';
 
 
 const PIE_COLORS = [
@@ -34,8 +35,8 @@ export default function AnalyticsPage() {
   }, []);
 
   if (loading) return (
-    <div className="flex items-center justify-center" style={{ height: '60vh', gap: 16 }}>
-      <div className="spinner spinner-lg" /> <span className="text-secondary">Loading analytics...</span>
+    <div className="flex items-center justify-center w-full" style={{ minHeight: '60vh' }}>
+      <Loader />
     </div>
   );
 

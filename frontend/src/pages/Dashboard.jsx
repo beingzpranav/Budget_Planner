@@ -6,6 +6,7 @@ import {
 import { Receipt, Wallet, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { getAnalytics, getBudget, getAnomalies } from '../api';
 import { formatCurrency, getCurrencySymbol } from '../utils';
+import Loader from '../components/ui/Loader';
 
 
 const PIE_COLORS = [
@@ -68,9 +69,8 @@ export default function Dashboard({ onNavigate }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center" style={{ height: '60vh', flexDirection: 'column', gap: 16 }}>
-        <div className="spinner spinner-lg" />
-        <span className="text-secondary">Loading dashboard...</span>
+      <div className="flex items-center justify-center w-full" style={{ minHeight: '60vh' }}>
+        <Loader />
       </div>
     );
   }

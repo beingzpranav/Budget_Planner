@@ -112,59 +112,84 @@ export default function SettingsPage ({ onNavigate }) {
         </div>
       ) : null}
 
-      <div className='card'>
-        <div className='flex items-center justify-between mb-4'>
-          <span className='font-semibold'>Budget Categories</span>
-          <span className='text-muted'>{selectedCount} selected</span>
+      <div className='mt-8'>
+        <div className='flex items-center justify-between mb-6'>
+          <div>
+            <h2 className='text-xl font-bold text-white'>Budget Categories</h2>
+            <p className='text-sm text-slate-400 mt-1'>Enable categories and set their monthly spending limits.</p>
+          </div>
+          <div className='px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-sm font-medium border border-slate-700'>
+            {selectedCount} selected
+          </div>
         </div>
-        <div className='grid-auto'>
+
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'>
           {categories.map((item) => (
-            <div key={item.category} className='card'>
-              <label className='flex items-center gap-3 mb-3'>
+            <div 
+              key={item.category} 
+              className={`p-5 rounded-xl border transition-all duration-200 ${item.enabled ? 'bg-slate-800/40 border-blue-500/30 shadow-[0_4px_24px_-8px_rgba(59,130,246,0.2)]' : 'bg-slate-900/30 border-slate-800/80 opacity-70'}`}
+            >
+              <label className='flex items-center gap-3 mb-5 cursor-pointer w-fit group'>
+                <div className={`flex items-center justify-center w-5 h-5 rounded border ${item.enabled ? 'bg-blue-500 border-blue-500' : 'bg-slate-800 border-slate-600 group-hover:border-slate-500'} transition-colors`}>
+                  {item.enabled && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M10 3L4.5 8.5L2 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                {/* Hidden native checkbox to keep functionality without native styling issues */}
                 <input
                   type='checkbox'
+                  className='hidden'
                   checked={item.enabled}
                   onChange={() => handleToggleCategory(item.category)}
                 />
-                <span className='font-semibold'>{item.category}</span>
-                {item.category === 'Healthcare' ? (
-                  <span className='text-muted'>(optional)</span>
-                ) : null}
+                <span className={`font-semibold text-sm ${item.enabled ? 'text-white' : 'text-slate-400'}`}>
+                  {item.category} 
+                  {item.category === 'Healthcare' && <span className='font-normal text-slate-500 ml-1'>(optional)</span>}
+                </span>
               </label>
-              <div className='flex items-center gap-2'>
-                <span className='text-muted'>Monthly limit</span>
-                <input
-                  className='form-input'
-                  type='number'
-                  disabled={!item.enabled}
-                  min='0'
-                  value={item.limit}
-                  onChange={(event) =>
-                    handleUpdateLimit(item.category, event.target.value)
-                  }
-                />
+
+              <div className='flex flex-col gap-2'>
+                <label className={`text-xs font-semibold uppercase tracking-wider ${item.enabled ? 'text-slate-400' : 'text-slate-600'}`}>Monthly Limit</label>
+                <div className="relative">
+                  <span className={`absolute left-3 top-1/2 -translate-y-1/2 font-medium ${item.enabled ? 'text-slate-500' : 'text-slate-700'}`}>₹</span>
+                  <input
+                    className={`w-full bg-slate-950/50 border ${item.enabled ? 'border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500' : 'border-slate-800/50'} rounded-lg py-2.5 pl-8 pr-3 text-sm text-white transition-all outline-none`}
+                    type='number'
+                    disabled={!item.enabled}
+                    min='0'
+                    value={item.limit}
+                    onChange={(event) => handleUpdateLimit(item.category, event.target.value)}
+                  />
+                </div>
               </div>
             </div>
           ))}
         </div>
-        <div className='flex justify-end mt-5'>
-          <button className='btn btn-primary' disabled={saving} onClick={handleSave}>
-            <Save size={16} />
-            {saving ? 'Saving...' : 'Save Budget Settings'}
-          </button>
-        </div>
-        <div className='text-xs text-muted mt-4'>
-          Only selected categories will appear in Budget Manager and analytics.
+
+        <div className='flex items-center justify-between mt-8 pt-6 border-t border-slate-800/60'>
+          <span className='text-xs text-slate-500 max-w-sm'>
+            Only selected categories will appear in your Budget Manager and analytics.
+          </span>
+          <div className='flex gap-4'>
+            {!requiresSetup && (
+              <button className='flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors' onClick={() => onNavigate?.('budget')}>
+                Budget Manager
+                <ArrowRight size={16} />
+              </button>
+            )}
+            <button 
+              className='flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 shadow-[0_0_15px_rgba(37,99,235,0.3)]' 
+              disabled={saving} 
+              onClick={handleSave}
+            >
+              <Save size={16} />
+              {saving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
         </div>
       </div>
-      {!requiresSetup ? (
-        <div className='flex justify-end mt-4'>
-          <button className='btn btn-secondary' onClick={() => onNavigate?.('budget')}>
-            Go to Budget Manager
-            <ArrowRight size={14} />
-          </button>
-        </div>
-      ) : null}
     </div>
   )
 }
